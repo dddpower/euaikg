@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Graph Viewer (Merged)</title>
+  <style>
+    html, body { height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    #toolbar { padding: 8px 10px; display:flex; gap:8px; align-items:center; border-bottom:1px solid #eee; }
+    #cy { width:100%; height: calc(100% - 44px); }
+    button, select { padding:6px 10px; border:1px solid #ddd; border-radius:8px; background:#fafafa; cursor:pointer; }
+    button:hover { background:#f0f0f0; }
+    .status { margin-left:auto; color:#666; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <label>Layout:</label>
+    <select id="layout">
+      <option value="cose" selected>cose</option>
+      <option value="concentric">concentric</option>
+      <option value="breadthfirst">breadthfirst</option>
+      <option value="grid">grid</option>
+      <option value="circle">circle</option>
+    </select>
+    <button id="runLayout">Apply Layout</button>
+    <button id="fit">Fit View</button>
+    <span class="status" id="status">Ready</span>
+  </div>
+  <div id="cy"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+  <script>
+    let cy;
+    async function loadGraph() {
+      const res = await fetch('/data');
+      const payload = await res.json();
+      const elements = payload.nodes.concat(payload.edges);
+
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements,
+        style: [
+          { selector: 'node',
+            style: {
+              'content': 'data(label)',
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'text-wrap': 'wrap',
+              'text-max-width': 140,
+              'font-size': 10,
+              'background-color': '#6fb1fc',
+              'color': '#fff',
+              'text-outline-color': '#456',
+              'text-outline-width': 2
+            }},
+          { selector: 'edge',
+            style: {
+              'curve-style': 'bezier',
+              'target-arrow-shape': 'triangle',
+              'line-color': '#999',
+              'target-arrow-color': '#999',
+              'width': 1.5,
+              'label': 'data(label)',
+              'font-size': 9,
+              'text-background-color': '#fff',
+              'text-background-opacity': 1,
+              'text-background-padding': '2px'
+            }},
+          { selector: ':selected',
+            style: {'background-color': '#f39', 'line-color':'#f39', 'target-arrow-color':'#f39'} }
+        ],
+        layout: { name: 'cose', animate: false },
+        wheelSensitivity: 0.2
+      });
+      cy.ready(() => cy.fit());
+    }
+
+    function runLayout() {
+      const name = document.getElementById('layout').value;
+      document.getElementById('status').textContent = `Layout: ${name} running...`;
+      cy.nodes().unlock();
+      cy.layout({ name, animate: true, animationDuration: 400 }).run();
+      setTimeout(() => document.getElementById('status').textContent = `Layout applied`, 500);
+    }
+    function fitView() { cy.fit(); }
+
+    document.getElementById('runLayout').addEventListener('click', runLayout);
+    document.getElementById('fit').addEventListener('click', fitView);
+
+    loadGraph();
+  </script>
+</body>
+</html>

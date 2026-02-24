@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+graph_cache_hybrid/
+local_transformers/
+local_LLM/
+*.pkl
+.claude/
+.omc/
