@@ -8,6 +8,8 @@ Usage:
 import argparse
 import subprocess
 import sys
+import urllib.request
+import urllib.error
 
 
 def run_mock_tests():
@@ -73,6 +75,46 @@ def run_real_tests():
     print("REAL MODE: All basic checks passed")
     print("=" * 60)
     return 0
+
+
+def check_neo4j(uri="neo4j://127.0.0.1:7687", user="neo4j", password=""):
+    """Check if Neo4j is reachable. Returns True on success, False on failure.
+
+    Callable from setup.sh via:
+        python -c "from validate import check_neo4j; check_neo4j()"
+    """
+    try:
+        from neo4j import GraphDatabase
+        driver = GraphDatabase.driver(uri, auth=(user, password))
+        with driver.session() as session:
+            result = session.run("RETURN 1 AS num").single()["num"]
+            assert result == 1
+        driver.close()
+        print(f"[check_neo4j] OK — connected to {uri}")
+        return True
+    except Exception as e:
+        print(f"[check_neo4j] FAIL — {e}")
+        return False
+
+
+def check_vllm(base_url="http://localhost:8000/v1"):
+    """Check if vLLM server is responding. Returns True on success, False on failure.
+
+    Callable from setup.sh via:
+        python -c "from validate import check_vllm; check_vllm()"
+    """
+    url = f"{base_url}/models"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            if resp.status == 200:
+                print(f"[check_vllm] OK — {url} responding")
+                return True
+            print(f"[check_vllm] FAIL — status {resp.status}")
+            return False
+    except (urllib.error.URLError, OSError) as e:
+        print(f"[check_vllm] FAIL — {e}")
+        return False
 
 
 def main():
