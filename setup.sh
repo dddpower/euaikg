@@ -275,15 +275,49 @@ section_neo4j() {
     while [[ $retries -gt 0 ]]; do
         if docker exec "$NEO4J_CONTAINER" bash -c 'echo > /dev/tcp/localhost/7687' 2>/dev/null; then
             ok "Neo4j is ready (bolt://localhost:7687)"
-            STATUS_NEO4J="ok"
-            echo ""
-            return
+            break
         fi
         retries=$((retries - 1))
         sleep 2
     done
-    fail "Neo4j did not become ready in time"
-    STATUS_NEO4J="fail"
+
+    if [[ $retries -le 0 ]]; then
+        fail "Neo4j did not become ready in time"
+        STATUS_NEO4J="fail"
+        echo ""
+        return
+    fi
+
+    # Install Graph Data Science plugin (manual download — auto-download is unreliable)
+    if docker exec "$NEO4J_CONTAINER" test -f /var/lib/neo4j/plugins/neo4j-graph-data-science-*.jar 2>/dev/null; then
+        ok "GDS plugin already installed"
+    else
+        info "Installing Graph Data Science plugin..."
+        local gds_version="2.13.7"
+        local gds_url="https://graphdatascience.ninja/neo4j-graph-data-science-${gds_version}.jar"
+        local gds_tmp="/tmp/neo4j-graph-data-science-${gds_version}.jar"
+        if curl -fSL -o "$gds_tmp" "$gds_url" 2>/dev/null; then
+            docker cp "$gds_tmp" "${NEO4J_CONTAINER}:/var/lib/neo4j/plugins/"
+            rm -f "$gds_tmp"
+            info "Restarting Neo4j to load GDS plugin..."
+            docker restart "$NEO4J_CONTAINER" >/dev/null
+            # Wait again after restart
+            local gds_retries=30
+            while [[ $gds_retries -gt 0 ]]; do
+                if docker exec "$NEO4J_CONTAINER" bash -c 'echo > /dev/tcp/localhost/7687' 2>/dev/null; then
+                    break
+                fi
+                gds_retries=$((gds_retries - 1))
+                sleep 2
+            done
+            ok "GDS ${gds_version} installed"
+        else
+            warn "Could not download GDS plugin. Community detection will not work."
+            warn "Manual install: download from $gds_url and docker cp into container plugins/"
+        fi
+    fi
+
+    STATUS_NEO4J="ok"
     echo ""
 }
 
