@@ -18,7 +18,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
 # ── vLLM ──
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8000/v1")
-VLLM_MODEL_ID = os.getenv("VLLM_MODEL_ID", "meetkai/functionary-medium-v3.0-AWQ")
+VLLM_MODEL_ID = os.getenv("VLLM_MODEL_ID", "Qwen/Qwen3-14B-AWQ")
 
 # ── Document ──
 DOCUMENT_PATH = Path(os.getenv("DOCUMENT_PATH", "EU_ai.txt"))
@@ -44,7 +44,7 @@ SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.95"))
 WORD_EDIT_DISTANCE = int(os.getenv("WORD_EDIT_DISTANCE", "3"))
 
 # ── Gemini models ──
-GEMINI_EXTRACTION_MODEL = os.getenv("GEMINI_EXTRACTION_MODEL", "gemini-2.5-pro-preview-06-05")
+GEMINI_EXTRACTION_MODEL = os.getenv("GEMINI_EXTRACTION_MODEL", "gemini-2.5-pro")
 GEMINI_RESOLUTION_MODEL = os.getenv("GEMINI_RESOLUTION_MODEL", "gemini-2.5-pro")
 
 

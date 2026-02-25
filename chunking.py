@@ -2,8 +2,8 @@
 
 from pathlib import Path
 from transformers import AutoTokenizer
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 import config
 
 _tokenizer = None

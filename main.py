@@ -53,31 +53,21 @@ def main():
     config.validate()
 
     import db
-    import chunking
-    import extraction
-    import ingestion
-    import community
     import visualization
+    from pipeline import run_pipeline_sync
 
     try:
-        # ── Phase: DB setup ──
-        if args.phase in ("all",):
-            db.test_connection()
-            if not args.no_wipe:
-                db.wipe_database()
-
-        # ── Phase: Extract ──
-        if args.phase in ("all", "extract"):
-            documents = chunking.load_and_chunk()
-            extraction.extract_graphs(documents)
-
-        # ── Phase: Ingest ──
-        if args.phase in ("all", "ingest"):
-            ingestion.ingest_graphs()
-
-        # ── Phase: Community detection + entity resolution ──
-        if args.phase in ("all", "community"):
-            community.resolve_and_merge()
+        # ── Pipeline phases (extract / ingest / community) ──
+        if args.phase != "serve":
+            phases = []
+            if args.phase in ("all", "extract"):
+                phases.append("extract")
+            if args.phase in ("all", "ingest"):
+                phases.append("ingest")
+            if args.phase in ("all", "community"):
+                phases.append("community")
+            if phases:
+                run_pipeline_sync(phases=phases, wipe_db=not args.no_wipe)
 
         # ── Phase: Visualization ──
         if args.phase in ("all", "serve") and not args.no_serve:

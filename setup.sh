@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/.venv"
 NEO4J_CONTAINER="euaikg-neo4j"
 NEO4J_DEFAULT_PASSWORD="neo4j-euaikg"
-VLLM_MODEL="meetkai/functionary-medium-v3.0-AWQ"
+VLLM_MODEL="Qwen/Qwen3-14B-AWQ"
 VLLM_PORT=8000
 
 # Flags
@@ -316,39 +316,31 @@ section_vllm() {
         return
     fi
 
-    # Try Docker method (preferred)
-    if command -v docker &>/dev/null; then
-        info "Launching vLLM via Docker..."
-        docker run -d \
-            --name euaikg-vllm \
-            --gpus all \
-            -p "${VLLM_PORT}:8000" \
-            --ipc=host \
-            vllm/vllm-openai:latest \
-            --model "$VLLM_MODEL" \
-            --quantization awq \
-            --max-model-len 4096 >/dev/null 2>&1 || {
-            warn "Docker vLLM launch failed. Trying pip-based vLLM..."
-            # Fallback: pip install
-            if pip install vllm 2>/dev/null; then
-                nohup vllm serve "$VLLM_MODEL" \
-                    --quantization awq \
-                    --max-model-len 4096 \
-                    --port "$VLLM_PORT" \
-                    > "$SCRIPT_DIR/vllm.log" 2>&1 &
-                ok "vLLM launched via pip (PID: $!, log: vllm.log)"
-            else
-                fail "Could not start vLLM via Docker or pip."
-                STATUS_VLLM="fail"
-                echo ""
-                return
-            fi
-        }
+    # Try pip-based vLLM (preferred — avoids Docker CUDA version mismatches)
+    info "Launching vLLM via pip..."
+    if pip install --quiet vllm 2>/dev/null; then
+        PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
+        nohup vllm serve "$VLLM_MODEL" \
+            --quantization awq_marlin \
+            --max-model-len 4096 \
+            --max-num-seqs 4 \
+            --gpu-memory-utilization 0.70 \
+            --enforce-eager \
+            --port "$VLLM_PORT" \
+            --enable-auto-tool-choice \
+            --tool-call-parser hermes \
+            > "$SCRIPT_DIR/vllm.log" 2>&1 &
+        ok "vLLM launched via pip (PID: $!, log: vllm.log)"
+    else
+        fail "Could not install vLLM via pip."
+        STATUS_VLLM="fail"
+        echo ""
+        return
     fi
 
     # Wait for vLLM /v1/models endpoint
     info "Waiting for vLLM to load model (this may take minutes)..."
-    local retries=60
+    local retries=90
     while [[ $retries -gt 0 ]]; do
         if curl -sf "http://localhost:${VLLM_PORT}/v1/models" &>/dev/null; then
             ok "vLLM is ready (http://localhost:${VLLM_PORT}/v1)"
@@ -356,10 +348,20 @@ section_vllm() {
             echo ""
             return
         fi
+        # Check if vLLM process died
+        if ! jobs -r %% &>/dev/null 2>&1 && ! curl -sf "http://localhost:${VLLM_PORT}/v1/models" &>/dev/null; then
+            if [[ -f "$SCRIPT_DIR/vllm.log" ]]; then
+                fail "vLLM process exited. Last log lines:"
+                tail -5 "$SCRIPT_DIR/vllm.log" | while read -r line; do echo "  $line"; done
+            fi
+            STATUS_VLLM="fail"
+            echo ""
+            return
+        fi
         retries=$((retries - 1))
         sleep 5
     done
-    warn "vLLM did not become ready within timeout. Check logs: docker logs euaikg-vllm"
+    warn "vLLM did not become ready within timeout. Check logs: tail -50 vllm.log"
     STATUS_VLLM="fail"
     echo ""
 }

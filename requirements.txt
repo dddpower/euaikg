@@ -6,6 +6,8 @@ langchain-experimental>=0.3
 langchain-openai>=0.1
 langchain-neo4j>=0.1
 langchain-google-genai>=1.0
+langchain-text-splitters>=0.2
+langchain-huggingface>=0.0.3
 
 # Embeddings
 transformers>=4.40

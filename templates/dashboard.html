@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>euAIKG Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f5f6f8; color: #1a1a2e; }
+
+    /* ── Grid layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 48px 1fr;
+      height: 100vh;
+    }
+    .header {
+      grid-column: 1 / -1;
+      background: #1a1a2e;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header span { opacity: 0.6; font-weight: 400; margin-left: 8px; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: #fff;
+      border-right: 1px solid #e0e0e0;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sidebar h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+
+    /* Checkboxes */
+    .phase-list { list-style: none; padding: 0; margin: 0; }
+    .phase-list li { padding: 4px 0; }
+    .phase-list label { cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+
+    /* Buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-run { background: #22c55e; color: #fff; }
+    .btn-run:hover { background: #16a34a; }
+    .btn-run:disabled { background: #94d3a2; cursor: not-allowed; }
+    .btn-stop { background: #ef4444; color: #fff; }
+    .btn-stop:hover { background: #dc2626; }
+    .btn-stop:disabled { background: #f9a8a8; cursor: not-allowed; }
+
+    /* State display */
+    .state-box {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+    }
+    .state-row { display: flex; justify-content: space-between; padding: 3px 0; }
+    .state-label { color: #888; }
+    .state-value { font-weight: 600; }
+
+    /* Phase progress */
+    .phase-progress { list-style: none; padding: 0; margin: 0; }
+    .phase-progress li {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .badge-wait { background: #e0e0e0; color: #666; }
+    .badge-running { background: #fbbf24; color: #78350f; }
+    .badge-ok { background: #22c55e; color: #fff; }
+    .badge-fail { background: #ef4444; color: #fff; }
+
+    /* ── Main area ── */
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Graph panel */
+    .graph-panel {
+      flex: 6;
+      position: relative;
+      min-height: 0;
+    }
+    #cy { width: 100%; height: 100%; }
+    .graph-toolbar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.92);
+      border-top: 1px solid #e0e0e0;
+      padding: 6px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 10;
+    }
+    .graph-toolbar select, .graph-toolbar button {
+      padding: 5px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .graph-toolbar button:hover { background: #f0f0f0; }
+    .graph-toolbar .spacer { flex: 1; }
+    .graph-status { font-size: 12px; color: #888; }
+
+    /* Log panel */
+    .log-panel {
+      flex: 4;
+      border-top: 2px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .log-header {
+      background: #1a1a2e;
+      color: #9ca3af;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    #logOutput {
+      flex: 1;
+      overflow-y: auto;
+      background: #0f0f1a;
+      color: #d1d5db;
+      font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 8px 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-line { padding: 1px 0; }
+    .log-line-error { color: #f87171; }
+    .log-line-ok { color: #4ade80; }
+
+    /* Checkbox styling */
+    .cb-wipe { margin-top: 4px; }
+    .cb-wipe label { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    euAIKG Dashboard <span>EU AI Act Knowledge Graph</span>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div>
+      <h3>Pipeline Control</h3>
+      <ul class="phase-list">
+        <li><label><input type="checkbox" id="cb-extract" checked> Extract</label></li>
+        <li><label><input type="checkbox" id="cb-ingest" checked> Ingest</label></li>
+        <li><label><input type="checkbox" id="cb-community" checked> Community</label></li>
+      </ul>
+      <div class="cb-wipe">
+        <label><input type="checkbox" id="cb-wipe"> Wipe DB first</label>
+      </div>
+    </div>
+
+    <button class="btn btn-run" id="btnRun">RUN</button>
+    <button class="btn btn-stop" id="btnStop" disabled>STOP</button>
+
+    <div class="state-box" id="stateBox">
+      <div class="state-row">
+        <span class="state-label">State</span>
+        <span class="state-value" id="stState">idle</span>
+      </div>
+      <div class="state-row">
+        <span class="state-label">Phase</span>
+        <span class="state-value" id="stPhase">&mdash;</span>
+      </div>
+      <div class="state-row">
+        <span class="state-label">Elapsed</span>
+        <span class="state-value" id="stTime">00:00</span>
+      </div>
+    </div>
+
+    <div>
+      <h3>Phase Progress</h3>
+      <ul class="phase-progress" id="phaseProgress">
+        <li><span>extract</span><span class="badge badge-wait" id="bp-extract">wait</span></li>
+        <li><span>ingest</span><span class="badge badge-wait" id="bp-ingest">wait</span></li>
+        <li><span>community</span><span class="badge badge-wait" id="bp-community">wait</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+    <!-- Graph viewer -->
+    <div class="graph-panel">
+      <div id="cy"></div>
+      <div class="graph-toolbar">
+        <label style="font-size:12px;">Layout:</label>
+        <select id="layoutSelect">
+          <option value="cose" selected>cose</option>
+          <option value="concentric">concentric</option>
+          <option value="breadthfirst">breadthfirst</option>
+          <option value="grid">grid</option>
+          <option value="circle">circle</option>
+        </select>
+        <button id="btnLayout">Apply</button>
+        <button id="btnFit">Fit</button>
+        <button id="btnRefresh">Refresh Data</button>
+        <span class="spacer"></span>
+        <span class="graph-status" id="graphStatus">Ready</span>
+      </div>
+    </div>
+
+    <!-- Log panel -->
+    <div class="log-panel">
+      <div class="log-header">Log Output</div>
+      <div id="logOutput"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<script>
+(function() {
+  // ── DOM refs ──
+  const btnRun     = document.getElementById('btnRun');
+  const btnStop    = document.getElementById('btnStop');
+  const stState    = document.getElementById('stState');
+  const stPhase    = document.getElementById('stPhase');
+  const stTime     = document.getElementById('stTime');
+  const logOutput  = document.getElementById('logOutput');
+  const graphStatus = document.getElementById('graphStatus');
+
+  let cy = null;
+  let eventSource = null;
+  let timerInterval = null;
+  let startedAt = null;
+
+  // ── Graph ──
+  async function loadGraph() {
+    graphStatus.textContent = 'Loading...';
+    try {
+      const res = await fetch('/data');
+      const payload = await res.json();
+      const elements = payload.nodes.concat(payload.edges);
+
+      if (cy) { cy.destroy(); }
+
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements,
+        style: [
+          { selector: 'node', style: {
+            'content': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
+            'text-wrap': 'wrap', 'text-max-width': 140, 'font-size': 10,
+            'background-color': '#6fb1fc', 'color': '#fff',
+            'text-outline-color': '#456', 'text-outline-width': 2
+          }},
+          { selector: 'edge', style: {
+            'curve-style': 'bezier', 'target-arrow-shape': 'triangle',
+            'line-color': '#999', 'target-arrow-color': '#999', 'width': 1.5,
+            'label': 'data(label)', 'font-size': 9,
+            'text-background-color': '#fff', 'text-background-opacity': 1,
+            'text-background-padding': '2px'
+          }},
+          { selector: ':selected', style: {
+            'background-color': '#f39', 'line-color': '#f39', 'target-arrow-color': '#f39'
+          }}
+        ],
+        layout: { name: 'cose', animate: false },
+        wheelSensitivity: 0.2
+      });
+      cy.ready(() => cy.fit());
+      graphStatus.textContent = `${payload.nodes.length} nodes, ${payload.edges.length} edges`;
+    } catch (e) {
+      graphStatus.textContent = 'No data (start pipeline or check Neo4j)';
+    }
+  }
+
+  document.getElementById('btnLayout').addEventListener('click', () => {
+    if (!cy) return;
+    const name = document.getElementById('layoutSelect').value;
+    cy.nodes().unlock();
+    cy.layout({ name, animate: true, animationDuration: 400 }).run();
+  });
+  document.getElementById('btnFit').addEventListener('click', () => { if (cy) cy.fit(); });
+  document.getElementById('btnRefresh').addEventListener('click', loadGraph);
+
+  // ── Timer ──
+  function startTimer() {
+    startedAt = Date.now();
+    timerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - startedAt) / 1000);
+      const m = Math.floor(s / 60);
+      stTime.textContent = String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    }, 1000);
+  }
+  function stopTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
+
+  // ── Log ──
+  function appendLog(text) {
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    if (/error|fail|exception/i.test(text)) div.className += ' log-line-error';
+    else if (/\bok\b|done|success|finished/i.test(text)) div.className += ' log-line-ok';
+    div.textContent = text;
+    logOutput.appendChild(div);
+    logOutput.scrollTop = logOutput.scrollHeight;
+  }
+
+  // ── Status update ──
+  function updateStatus(data) {
+    stState.textContent = data.state;
+    stPhase.textContent = data.current_phase || '\u2014';
+
+    const phases = ['extract', 'ingest', 'community'];
+    phases.forEach(p => {
+      const badge = document.getElementById('bp-' + p);
+      if (data.completed_phases && data.completed_phases.includes(p)) {
+        badge.textContent = 'OK';
+        badge.className = 'badge badge-ok';
+      } else if (data.current_phase === p) {
+        badge.textContent = 'running';
+        badge.className = 'badge badge-running';
+      } else {
+        badge.textContent = 'wait';
+        badge.className = 'badge badge-wait';
+      }
+    });
+
+    if (data.state === 'failed') {
+      const badge = document.getElementById('bp-' + data.current_phase);
+      if (badge) { badge.textContent = 'FAIL'; badge.className = 'badge badge-fail'; }
+    }
+  }
+
+  function setUIRunning(running) {
+    btnRun.disabled = running;
+    btnStop.disabled = !running;
+  }
+
+  // ── Pipeline control ──
+  btnRun.addEventListener('click', async () => {
+    const phases = [];
+    if (document.getElementById('cb-extract').checked)   phases.push('extract');
+    if (document.getElementById('cb-ingest').checked)     phases.push('ingest');
+    if (document.getElementById('cb-community').checked)  phases.push('community');
+    if (phases.length === 0) { appendLog('[dashboard] No phases selected.'); return; }
+
+    const wipe_db = document.getElementById('cb-wipe').checked;
+
+    // Reset UI
+    logOutput.innerHTML = '';
+    ['extract', 'ingest', 'community'].forEach(p => {
+      const b = document.getElementById('bp-' + p);
+      b.textContent = 'wait'; b.className = 'badge badge-wait';
+    });
+
+    setUIRunning(true);
+    startTimer();
+    appendLog('[dashboard] Starting pipeline: ' + phases.join(', ') + (wipe_db ? ' (wipe DB)' : ''));
+
+    try {
+      const res = await fetch('/api/pipeline/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phases, wipe_db })
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        appendLog('[dashboard] Error: ' + (body.error || 'unknown'));
+        setUIRunning(false);
+        stopTimer();
+        return;
+      }
+    } catch (e) {
+      appendLog('[dashboard] Failed to start: ' + e.message);
+      setUIRunning(false);
+      stopTimer();
+      return;
+    }
+
+    // Connect SSE
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource('/api/pipeline/events');
+
+    eventSource.addEventListener('log', (e) => {
+      appendLog(JSON.parse(e.data));
+    });
+
+    eventSource.addEventListener('status', (e) => {
+      updateStatus(JSON.parse(e.data));
+    });
+
+    eventSource.addEventListener('done', () => {
+      eventSource.close();
+      eventSource = null;
+      setUIRunning(false);
+      stopTimer();
+      appendLog('[dashboard] Pipeline finished.');
+      // Auto-refresh graph
+      loadGraph();
+    });
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      eventSource = null;
+      setUIRunning(false);
+      stopTimer();
+      // Fetch final status
+      fetch('/api/status').then(r => r.json()).then(updateStatus).catch(() => {});
+    };
+  });
+
+  btnStop.addEventListener('click', async () => {
+    appendLog('[dashboard] Requesting stop (current phase will finish)...');
+    try {
+      await fetch('/api/pipeline/stop', { method: 'POST' });
+    } catch (e) {
+      appendLog('[dashboard] Stop request failed: ' + e.message);
+    }
+  });
+
+  // ── Status polling fallback (every 5s) ──
+  setInterval(async () => {
+    try {
+      const res = await fetch('/api/status');
+      const data = await res.json();
+      updateStatus(data);
+    } catch (e) { /* ignore */ }
+  }, 5000);
+
+  // ── Initial load ──
+  loadGraph();
+  fetch('/api/status').then(r => r.json()).then(updateStatus).catch(() => {});
+})();
+</script>
+</body>
+</html>

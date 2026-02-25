@@ -22,7 +22,6 @@ _STUB_MODULES = [
     "langchain_core", "langchain_core.runnables",
     "langchain_core.prompts", "langchain_core.output_parsers",
     "langchain_core.load", "langchain_core.documents",
-    "langchain_core.pydantic_v1",
     "langchain_community", "langchain_community.vectorstores",
     "langchain_community.vectorstores.neo4j_vector",
     "langchain_community.document_loaders",
@@ -31,6 +30,8 @@ _STUB_MODULES = [
     "langchain_openai",
     "langchain_experimental", "langchain_experimental.graph_transformers",
     "langchain_google_genai",
+    "langchain_text_splitters",
+    "langchain_huggingface",
     # neo4j
     "neo4j",
     # ML / embeddings
@@ -73,15 +74,15 @@ class _FakeDocument:
 sys.modules["langchain.schema"].Document = _FakeDocument
 sys.modules["langchain_core.documents"].Document = _FakeDocument
 
-# Provide real BaseModel/Field stubs for pydantic_v1
+# Provide real BaseModel/Field stubs for pydantic
 class _FakeBaseModel:
     pass
 
 def _fake_field(**kwargs):
     return None
 
-sys.modules["langchain_core.pydantic_v1"].BaseModel = _FakeBaseModel
-sys.modules["langchain_core.pydantic_v1"].Field = _fake_field
+sys.modules["pydantic"].BaseModel = _FakeBaseModel
+sys.modules["pydantic"].Field = _fake_field
 
 # Provide a real GraphDocument class stub
 class _FakeGraphDocument:

@@ -7,11 +7,11 @@ from tqdm import tqdm
 from retry import retry
 
 from langchain_community.vectorstores import Neo4jVector
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from graphdatascience import GraphDataScience
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 import config
 import db
