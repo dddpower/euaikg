@@ -19,6 +19,10 @@ WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GRAY = RGBColor(0x66, 0x66, 0x66)
 ACCENT = RGBColor(0x1E, 0x88, 0xE5)
 
+# Font
+FONT_KR = "KoPub돋움체 Medium"
+FONT_KR_BOLD = "KoPub돋움체 Bold"
+
 
 def set_slide_bg(slide, color):
     bg = slide.background
@@ -36,6 +40,7 @@ def add_title(slide, text, left, top, width, height, size=32, color=DARK, bold=T
     p.font.size = Pt(size)
     p.font.color.rgb = color
     p.font.bold = bold
+    p.font.name = FONT_KR_BOLD if bold else FONT_KR
     return tf
 
 
@@ -51,6 +56,7 @@ def add_body(slide, lines, left, top, width, height, size=14, color=DARK, spacin
         p.text = line
         p.font.size = Pt(size)
         p.font.color.rgb = color
+        p.font.name = FONT_KR
         p.space_after = Pt(size * spacing * 0.4)
     return tf
 
@@ -241,6 +247,7 @@ def make_pptx():
             p.font.size = Pt(13)
             p.font.bold = True
             p.font.color.rgb = WHITE
+            p.font.name = FONT_KR_BOLD
         cell.fill.solid()
         cell.fill.fore_color.rgb = DARK
 
@@ -251,6 +258,7 @@ def make_pptx():
             for p in cell.text_frame.paragraphs:
                 p.font.size = Pt(12)
                 p.font.color.rgb = DARK
+                p.font.name = FONT_KR
             cell.fill.solid()
             cell.fill.fore_color.rgb = RGBColor(0xF5, 0xF6, 0xF8) if ri % 2 == 0 else WHITE
 
