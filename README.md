@@ -1,10 +1,10 @@
-# euAIKG — EU AI Act Knowledge Graph
+# ckAIKG — AIDE global problem Knowledge Graph
 
 Automated knowledge graph construction pipeline that transforms the EU AI Act text into a queryable Neo4j graph database with interactive visualization.
 
 ## Authors
 
-**Yungi Hong**\*, **Hyoseok Jang**\*, Haneol Cho, Sangchul Lee<sup>&dagger;</sup>, Chansoo Kim<sup>&dagger;</sup>, Nabil Belacel<sup>&dagger;</sup>
+**Yungi Hong**\*, **Hyoseok Jang**\*, Haneol Cho, Sangchul Lee<sup>&dagger;</sup>, Nabil Belacel<sup>&dagger;</sup>, Chansoo Kim<sup>&dagger;</sup>
 
 <sub>\* Equal contribution &nbsp;&nbsp; <sup>&dagger;</sup> Cross-affiliation</sub>
 
