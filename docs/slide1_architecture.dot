@@ -1,0 +1,56 @@
+digraph Architecture {
+    rankdir=LR;
+    bgcolor="white";
+    ratio="compress";
+    size="12,5";
+    node [fontname="Helvetica", fontsize=11, style="filled,rounded", shape=box, penwidth=1.2, margin="0.15,0.08"];
+    edge [fontname="Helvetica", fontsize=9, color="#555555", penwidth=1.2];
+
+    // ── Input ──
+    input [label="EU AI Act\n(Raw Text)", fillcolor="#E8F5E9", color="#43A047", shape=note];
+
+    // ── Chunking ──
+    chunking [label="Chunking\nQwen3 Tokenizer\n350 tok / 75 overlap", fillcolor="#E3F2FD", color="#1E88E5"];
+
+    // ── Extraction ──
+    subgraph cluster_extraction {
+        label="Graph Extraction\n(Dual LLM)";
+        fontname="Helvetica Bold";
+        fontsize=10;
+        style="dashed,rounded";
+        color="#7E57C2";
+        bgcolor="#F3E5F5";
+        margin=12;
+
+        vllm [label="vLLM\nQwen3-14B-AWQ\n(Local GPU)", fillcolor="#CE93D8", color="#7E57C2"];
+        gemini_ext [label="Gemini API\n(Fallback)", fillcolor="#E1BEE7", color="#7E57C2"];
+        vllm -> gemini_ext [label="on fail", style=dashed, color="#E53935"];
+    }
+
+    // ── Neo4j ──
+    subgraph cluster_neo4j {
+        label="Neo4j + Plugins";
+        fontname="Helvetica Bold";
+        fontsize=10;
+        style="dashed,rounded";
+        color="#00897B";
+        bgcolor="#E0F2F1";
+        margin=12;
+
+        ingestion [label="Ingestion", fillcolor="#80CBC4", color="#00897B"];
+        community [label="Community\nDetection\n(KNN+WCC)", fillcolor="#80CBC4", color="#00897B"];
+        resolution [label="Entity\nResolution\n(Gemini+APOC)", fillcolor="#80CBC4", color="#00897B"];
+
+        ingestion -> community -> resolution;
+    }
+
+    // ── Frontend ──
+    dashboard [label="Web Dashboard\nFlask + Cytoscape.js", fillcolor="#FFF3E0", color="#FB8C00"];
+
+    // ── Edges ──
+    input -> chunking;
+    chunking -> vllm;
+    vllm -> ingestion [label="GraphDocs"];
+    gemini_ext -> ingestion [style=dashed];
+    resolution -> dashboard [label="REST+SSE"];
+}
