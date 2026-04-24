@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIDE 관계 네트워크 시각화</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --panel: #fffdf8;
+      --ink: #18222d;
+      --muted: #5d6a75;
+      --accent: #b8472f;
+      --accent-soft: #f2d7cf;
+      --line: #d8cec2;
+      --shadow: 0 18px 40px rgba(44, 34, 24, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(184, 71, 47, 0.14), transparent 26%),
+        radial-gradient(circle at top right, rgba(31, 84, 123, 0.12), transparent 24%),
+        linear-gradient(180deg, #f8f4ed 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+    .shell {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 20px auto;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 253, 248, 0.92);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+    .header {
+      display: flex;
+      gap: 16px;
+      align-items: end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 15px;
+      margin-top: 8px;
+    }
+    .stamp {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.75);
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 16px 0 18px;
+    }
+    .graph-button {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fffaf3 0%, #f7efe4 100%);
+      color: var(--ink);
+      border-radius: 14px;
+      padding: 12px 16px;
+      min-width: 150px;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+      text-align: left;
+      box-shadow: 0 6px 14px rgba(55, 40, 25, 0.08);
+    }
+    .graph-button:hover {
+      transform: translateY(-1px);
+      border-color: #bb9476;
+    }
+    .graph-button.active {
+      background: linear-gradient(180deg, #c6543a 0%, #9e3723 100%);
+      color: white;
+      border-color: transparent;
+    }
+    .graph-button strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .graph-button span {
+      display: block;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .viewer {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .viewer-head {
+      padding: 18px 22px 8px;
+      border-bottom: 1px solid rgba(216, 206, 194, 0.7);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,244,237,0.92));
+    }
+    .viewer-head h2 {
+      margin: 0;
+      font-size: clamp(20px, 2.6vw, 28px);
+    }
+    .viewer-head p {
+      margin: 8px 0 10px;
+      color: var(--muted);
+    }
+    .panel {
+      display: none;
+      padding: 14px;
+      min-height: 70vh;
+      background: #fcfaf6;
+    }
+    .panel.active { display: block; }
+    .panel img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      background: white;
+    }
+    .panel iframe {
+      width: 100%;
+      min-height: 74vh;
+      border: 0;
+      border-radius: 16px;
+      background: white;
+    }
+    .meta {
+      padding: 0 22px 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 900px) {
+      .shell { width: min(100vw - 16px, 1440px); padding: 16px; margin: 8px auto; }
+      .graph-button { flex: 1 1 100%; min-width: unset; }
+      .panel { min-height: 52vh; padding: 10px; }
+      .panel iframe { min-height: 58vh; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="header">
+      <div>
+        <h1>AIDE 관계 네트워크 시각화</h1>
+        <div class="sub">그래프 속성: 노드 중심 구조. 링크 방향. 연결 강도. 색상·크기·선 두께 기반 가중치 표현.</div>
+      </div>
+      <div class="stamp">Build Time: 2026-04-23 17:16:10</div>
+    </div>
+
+    <div class="button-row">
+      <button class="graph-button" data-key="graph1"><strong>GDP 관련 변수 관계 네트워크</strong><span>GDP 관련 변수 간 영향 관계</span></button>
+      <button class="graph-button" data-key="graph2"><strong>2022 글로벌 산업 관계 네트워크</strong><span>산업 부문 간 거래 연결과 규모</span></button>
+      <button class="graph-button" data-key="graph3"><strong>판례간 참조 관계 네트워크</strong><span>판례 간 참조 방향과 연결 구조</span></button>
+      <button class="graph-button" data-key="graph4"><strong>GDP 상위 20개국 글로벌 무역-탄소 네트워크</strong><span>국가별 CO2·GDP·무역 규모 비교</span></button>
+      <button class="graph-button" data-key="graph5"><strong>태평양 연안 국가 중심 교역 네트워크</strong><span>태평양 연안 국가 간 교역 관계</span></button>
+    </div>
+
+    <section class="viewer">
+      <div class="viewer-head">
+        <h2 id="viewer-title">GDP 관련 변수 관계 네트워크</h2>
+        <p id="viewer-desc">GDP 관련 변수 간 영향 관계</p>
+      </div>
+      <div class="panel" data-key="graph1"><img src="outputs_nsga/view_graph_ECON_GDP_highlight.png" alt="GDP 관련 변수 간 영향 관계"></div>
+      <div class="panel" data-key="graph2"><img src="ui_industry_network_final.png" alt="산업 부문 간 거래 연결과 규모"></div>
+      <div class="panel" data-key="graph3"><iframe src="graph_ui.html" title="판례 간 참조 방향과 연결 구조" loading="lazy"></iframe></div>
+      <div class="panel" data-key="graph4"><img src="ui_global_trade_co2_network.png" alt="국가별 CO2·GDP·무역 규모 비교"></div>
+      <div class="panel" data-key="graph5"><img src="ui_pacific_trade_network.png" alt="태평양 연안 국가 간 교역 관계"></div>
+      <div class="meta">실행 환경: `lgtest` | 출력 파일 경로는 현재 작업 폴더 기준 상대경로입니다.</div>
+    </section>
+  </main>
+
+  <script>
+    const graphMeta = {"graph1": {"title": "GDP 관련 변수 관계 네트워크", "description": "GDP 관련 변수 간 영향 관계"}, "graph2": {"title": "2022 글로벌 산업 관계 네트워크", "description": "산업 부문 간 거래 연결과 규모"}, "graph3": {"title": "판례간 참조 관계 네트워크", "description": "판례 간 참조 방향과 연결 구조"}, "graph4": {"title": "GDP 상위 20개국 글로벌 무역-탄소 네트워크", "description": "국가별 CO2·GDP·무역 규모 비교"}, "graph5": {"title": "태평양 연안 국가 중심 교역 네트워크", "description": "태평양 연안 국가 간 교역 관계"}};
+    const buttons = [...document.querySelectorAll('.graph-button')];
+    const panels = [...document.querySelectorAll('.panel')];
+    const title = document.getElementById('viewer-title');
+    const desc = document.getElementById('viewer-desc');
+
+    function activateGraph(key) {
+      buttons.forEach((button) => button.classList.toggle('active', button.dataset.key === key));
+      panels.forEach((panel) => panel.classList.toggle('active', panel.dataset.key === key));
+      title.textContent = graphMeta[key].title;
+      desc.textContent = graphMeta[key].description;
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => activateGraph(button.dataset.key));
+    });
+
+    activateGraph('graph1');
+  </script>
+</body>
+</html>

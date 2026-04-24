@@ -136,6 +136,20 @@ For remote servers, use SSH tunneling:
 ssh -L 5000:127.0.0.1:5000 user@server
 ```
 
+### Offline Network UI
+
+A self-contained static viewer under `network_ui/` presents the AIDE relationship
+networks (GDP variables, global industry, case-law references, trade-CO2,
+Pacific trade) without needing the pipeline or Neo4j.
+
+```bash
+xdg-open network_ui/network_ui.html
+# or serve statically:
+python -m http.server --directory network_ui 8001
+```
+
+Assets use relative paths (`lib/`, `outputs_nsga/`) — keep the directory intact.
+
 ## Configuration
 
 All settings are configured via `.env` (see `.env.example`):
@@ -177,6 +191,11 @@ euAIKG/
 ├── setup.sh             # Automated environment setup
 ├── templates/
 │   └── dashboard.html   # Cytoscape.js dashboard
+├── network_ui/          # Offline AIDE network visualization bundle
+│   ├── network_ui.html  # Entry page — 5 graph tabs
+│   ├── graph_ui.html    # Embedded vis-network viewer
+│   ├── lib/             # vis-network 9.1.2 assets
+│   └── outputs_nsga/    # Rendered graph images
 ├── tests/
 │   ├── conftest.py
 │   └── ...
