@@ -150,6 +150,16 @@ python -m http.server --directory network_ui 8001
 
 Assets use relative paths (`lib/`, `outputs_nsga/`) — keep the directory intact.
 
+An additional standalone viewer `network_ui/nsga_front_replay.html` replays the
+NSGA-II Pareto front evolution using `nsga_front_map_all.csv` in the same
+folder. Because it loads the CSV via `fetch`, serve it through a local HTTP
+server rather than opening the file directly:
+
+```bash
+python -m http.server --directory network_ui 8001
+# then visit http://localhost:8001/nsga_front_replay.html
+```
+
 ## Configuration
 
 All settings are configured via `.env` (see `.env.example`):
@@ -194,6 +204,8 @@ euAIKG/
 ├── network_ui/          # Offline AIDE network visualization bundle
 │   ├── network_ui.html  # Entry page — 5 graph tabs
 │   ├── graph_ui.html    # Embedded vis-network viewer
+│   ├── nsga_front_replay.html    # NSGA Pareto-front replay viewer
+│   ├── nsga_front_map_all.csv    # NSGA front map data (gen / nd_rank / GDP / GHG)
 │   ├── lib/             # vis-network 9.1.2 assets
 │   └── outputs_nsga/    # Rendered graph images
 ├── tests/

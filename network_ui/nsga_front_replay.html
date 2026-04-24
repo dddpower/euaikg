@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSGA Pareto Front Replay</title>
+  <style>
+    :root {
+      --bg: #f3efe6;
+      --panel: rgba(255, 251, 244, 0.92);
+      --panel-strong: #fffaf1;
+      --ink: #1c2a2f;
+      --muted: #6a7477;
+      --line: rgba(28, 42, 47, 0.12);
+      --accent: #15616d;
+      --accent-2: #ff7d00;
+      --accent-3: #3a86ff;
+      --ghost: rgba(21, 97, 109, 0.18);
+      --danger: #a63c06;
+      --shadow: 0 18px 50px rgba(28, 42, 47, 0.12);
+      --radius: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 125, 0, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(58, 134, 255, 0.15), transparent 24%),
+        linear-gradient(180deg, #f8f4eb 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+
+    .page {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr);
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .main-panel {
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto auto minmax(480px, 1fr) auto;
+      gap: 16px;
+    }
+
+    .side-panel {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2vw, 2.3rem);
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 760px;
+    }
+
+    .badge {
+      border: 1px solid rgba(21, 97, 109, 0.18);
+      background: rgba(21, 97, 109, 0.08);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button,
+    select,
+    input[type="file"]::file-selector-button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 16px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 140ms ease, opacity 140ms ease, background 140ms ease;
+    }
+
+    button:hover,
+    input[type="file"]::file-selector-button:hover {
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    button.secondary {
+      background: #dde8ea;
+      color: var(--ink);
+    }
+
+    button.ghost {
+      background: rgba(21, 97, 109, 0.08);
+      color: var(--accent);
+      border: 1px solid rgba(21, 97, 109, 0.14);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+      transform: none;
+    }
+
+    select,
+    input[type="range"],
+    input[type="file"] {
+      font: inherit;
+    }
+
+    input[type="file"] {
+      max-width: 320px;
+      color: var(--muted);
+    }
+
+    .slider-wrap {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .slider-wrap label {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-2);
+    }
+
+    .toggle-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .toggle input {
+      accent-color: var(--accent);
+    }
+
+    .viz-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid rgba(28, 42, 47, 0.1);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(250, 247, 240, 0.92)),
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(28, 42, 47, 0.04) 39px, rgba(28, 42, 47, 0.04) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(28, 42, 47, 0.04) 39px, rgba(28, 42, 47, 0.04) 40px);
+      min-height: 980px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 980px;
+    }
+
+    .axis,
+    .grid-line {
+      stroke: rgba(28, 42, 47, 0.14);
+      stroke-width: 1;
+    }
+
+    .axis-label,
+    .tick-label {
+      fill: var(--muted);
+      font-size: 13px;
+    }
+
+    .plot-title {
+      fill: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      min-width: 200px;
+      max-width: 280px;
+      background: rgba(28, 42, 47, 0.92);
+      color: white;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      opacity: 0;
+      transform: translate(12px, 12px);
+      transition: opacity 120ms ease;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    .timeline {
+      padding: 12px 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.55);
+    }
+
+    .timeline-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 12px;
+    }
+
+    .timeline-head strong {
+      font-size: 0.98rem;
+    }
+
+    .timeline-head span {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    canvas {
+      width: 100%;
+      height: 96px;
+      display: block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(21, 97, 109, 0.03), rgba(21, 97, 109, 0.01));
+    }
+
+    .stat-card {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+    }
+
+    .stat-card h2,
+    .stat-card h3 {
+      margin: 0 0 10px;
+      font-size: 0.98rem;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(21, 97, 109, 0.06);
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 0.84rem;
+      margin-bottom: 6px;
+    }
+
+    .metric .value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .legend {
+      display: grid;
+      gap: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      flex: none;
+    }
+
+    .status {
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 0.93rem;
+      background: rgba(21, 97, 109, 0.08);
+      color: var(--accent);
+      border: 1px solid rgba(21, 97, 109, 0.1);
+    }
+
+    .status.warn {
+      background: rgba(166, 60, 6, 0.08);
+      color: var(--danger);
+      border-color: rgba(166, 60, 6, 0.12);
+    }
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 1100px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .main-panel {
+        min-height: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="panel main-panel">
+      <div class="hero">
+        <div>
+          <h1>NSGA Pareto Front Replay</h1>
+          <p>
+            세대별 비지배해의 움직임을 2차원 평면 위에서 재생합니다.
+            오른쪽으로 갈수록 GDP가 크고, 아래로 갈수록 GHG가 작아 더 바람직한 해입니다.
+          </p>
+        </div>
+        <div class="badge" id="datasetBadge">데이터 미로드</div>
+      </div>
+
+      <div class="controls">
+        <div class="control-row">
+          <button class="primary" id="startBtn">Start</button>
+          <button class="secondary" id="pauseBtn" disabled>Pause</button>
+          <button class="secondary" id="resetBtn" disabled>Reset</button>
+          <button class="ghost" id="loadDefaultBtn">Load default CSV</button>
+          <label class="ghost" style="display:inline-flex; align-items:center; gap:10px;">
+            CSV 선택
+            <input type="file" id="fileInput" accept=".csv,text/csv">
+          </label>
+          <label for="speedSelect" style="color: var(--muted); font-weight: 600;">속도</label>
+          <select id="speedSelect">
+            <option value="2200">0.5x</option>
+            <option value="1200" selected>1x</option>
+            <option value="700">2x</option>
+            <option value="350">4x</option>
+          </select>
+        </div>
+
+        <div class="slider-wrap">
+          <label for="generationSlider">세대</label>
+          <input type="range" id="generationSlider" min="0" max="0" value="0" disabled>
+          <strong id="generationLabel">-</strong>
+        </div>
+
+        <div class="toggle-group">
+          <label class="toggle"><input type="checkbox" id="trailToggle" checked> 이전 세대 잔상</label>
+          <label class="toggle"><input type="checkbox" id="polylineToggle" checked> 현재 프론트 연결선</label>
+          <label class="toggle"><input type="checkbox" id="highlightToggle" checked> 새 점 강조</label>
+          <label class="toggle"><input type="checkbox" id="currentOnlyToggle"> 현재 세대만 보기</label>
+        </div>
+      </div>
+
+      <div class="viz-shell">
+        <svg id="chart" viewBox="0 0 1040 1044" preserveAspectRatio="xMidYMid meet" aria-label="Pareto front chart"></svg>
+        <div class="empty-state" id="emptyState">
+          `Load default CSV`를 누르거나 파일을 선택하면 시연용 리플레이가 준비됩니다.
+        </div>
+        <div class="tooltip" id="tooltip"></div>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-head">
+          <strong>세대별 프론트 점 개수</strong>
+          <span id="timelineSummary">데이터 없음</span>
+        </div>
+        <canvas id="timelineCanvas" width="1200" height="96"></canvas>
+      </div>
+    </section>
+
+    <aside class="panel side-panel">
+      <div id="statusBox" class="status">
+        CSV를 불러오면 현재 세대, 점 개수, 대표 해 정보를 여기서 확인할 수 있습니다.
+      </div>
+
+      <section class="stat-card">
+        <h2>현재 세대</h2>
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="label">Generation</div>
+            <div class="value" id="statGen">-</div>
+          </div>
+          <div class="metric">
+            <div class="label">Front Points</div>
+            <div class="value" id="statCount">-</div>
+          </div>
+          <div class="metric">
+            <div class="label">Best GDP</div>
+            <div class="value" id="statBestGdp">-</div>
+          </div>
+          <div class="metric">
+            <div class="label">Best GHG</div>
+            <div class="value" id="statBestGhg">-</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stat-card">
+        <h3>대표 해</h3>
+        <div id="solutionDetails" style="color: var(--muted); line-height: 1.7;">
+          아직 선택된 세대가 없습니다.
+        </div>
+      </section>
+
+      <section class="stat-card">
+        <h3>비교 리포트</h3>
+        <div id="comparisonSummary" style="color: var(--muted); line-height: 1.7; margin-bottom: 12px;">
+          `plot_nsga.py` 기준 비교 리포트가 여기에 표시됩니다.
+        </div>
+        <div style="overflow-x: auto;">
+          <table id="comparisonTable" style="width: 100%; border-collapse: collapse; font-size: 0.92rem;">
+            <thead>
+              <tr style="text-align: left; color: var(--muted); border-bottom: 1px solid var(--line);">
+                <th style="padding: 8px 6px;">케이스</th>
+                <th style="padding: 8px 6px; text-align: right;">GDP</th>
+                <th style="padding: 8px 6px; text-align: right;">GHG</th>
+                <th style="padding: 8px 6px; text-align: right;">감축량</th>
+              </tr>
+            </thead>
+            <tbody id="comparisonBody">
+              <tr>
+                <td colspan="4" style="padding: 10px 6px; color: var(--muted);">데이터 없음</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="stat-card">
+        <h3>전체 범위</h3>
+        <div id="rangeDetails" style="color: var(--muted); line-height: 1.8;">
+          GDP / GHG 범위는 데이터 로드 후 계산됩니다.
+        </div>
+      </section>
+
+      <section class="stat-card">
+        <h3>범례</h3>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background: #3a86ff;"></span> 기준점 Baseline</div>
+          <div class="legend-item"><span class="swatch" style="background: rgba(21, 97, 109, 0.20);"></span> 이전 세대 잔상</div>
+          <div class="legend-item"><span class="swatch" style="background: #ff7d00;"></span> 현재 세대 점</div>
+          <div class="legend-item"><span class="swatch" style="background: #3a86ff; opacity: 0.45;"></span> 새로 등장한 점 강조</div>
+          <div class="legend-item"><span class="swatch" style="background: #15616d;"></span> 현재 프론트 연결선</div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    (function () {
+      const state = {
+        rawRows: [],
+        grouped: [],
+        generationKeys: [],
+        minGDP: 0,
+        maxGDP: 0,
+        minGHG: 0,
+        maxGHG: 0,
+        plotMinGDP: 0,
+        plotMaxGDP: 0,
+        plotMinGHG: 0,
+        plotMaxGHG: 0,
+        currentIndex: 0,
+        isPlaying: false,
+        timerId: null,
+        frameDelay: 1200,
+        previousCurrentKeys: new Set(),
+      };
+
+      const svg = document.getElementById("chart");
+      const emptyState = document.getElementById("emptyState");
+      const tooltip = document.getElementById("tooltip");
+      const datasetBadge = document.getElementById("datasetBadge");
+      const generationSlider = document.getElementById("generationSlider");
+      const generationLabel = document.getElementById("generationLabel");
+      const timelineCanvas = document.getElementById("timelineCanvas");
+      const statusBox = document.getElementById("statusBox");
+      const timelineSummary = document.getElementById("timelineSummary");
+
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const loadDefaultBtn = document.getElementById("loadDefaultBtn");
+      const fileInput = document.getElementById("fileInput");
+      const speedSelect = document.getElementById("speedSelect");
+
+      const trailToggle = document.getElementById("trailToggle");
+      const polylineToggle = document.getElementById("polylineToggle");
+      const highlightToggle = document.getElementById("highlightToggle");
+      const currentOnlyToggle = document.getElementById("currentOnlyToggle");
+
+      const statGen = document.getElementById("statGen");
+      const statCount = document.getElementById("statCount");
+      const statBestGdp = document.getElementById("statBestGdp");
+      const statBestGhg = document.getElementById("statBestGhg");
+      const solutionDetails = document.getElementById("solutionDetails");
+      const rangeDetails = document.getElementById("rangeDetails");
+      const comparisonSummary = document.getElementById("comparisonSummary");
+      const comparisonBody = document.getElementById("comparisonBody");
+
+      const baseline = {
+        GDP: 53.3338,
+        GHG: 930.919,
+      };
+
+      const chartBox = { width: 1040, height: 1044, left: 90, right: 28, top: 40, bottom: 82 };
+
+      function setStatus(message, type) {
+        statusBox.textContent = message;
+        statusBox.className = type === "warn" ? "status warn" : "status";
+      }
+
+      function stopPlayback() {
+        if (state.timerId) {
+          clearTimeout(state.timerId);
+          state.timerId = null;
+        }
+        state.isPlaying = false;
+        pauseBtn.disabled = true;
+      }
+
+      function scheduleNextFrame() {
+        stopPlayback();
+        if (!state.grouped.length) {
+          return;
+        }
+        state.isPlaying = true;
+        pauseBtn.disabled = false;
+        state.timerId = window.setTimeout(() => {
+          if (state.currentIndex >= state.grouped.length - 1) {
+            stopPlayback();
+            setStatus("마지막 세대까지 재생했습니다. Reset으로 처음부터 다시 볼 수 있습니다.", "normal");
+            return;
+          }
+          setCurrentIndex(state.currentIndex + 1, true);
+          scheduleNextFrame();
+        }, state.frameDelay);
+      }
+
+      function parseCsv(text) {
+        const normalized = text.replace(/\r\n/g, "\n").trim();
+        if (!normalized) {
+          throw new Error("CSV 내용이 비어 있습니다.");
+        }
+
+        const lines = normalized.split("\n").filter(Boolean);
+        const headers = lines[0].split(",").map((item) => item.trim());
+        const required = ["gen", "GDP", "GHG"];
+        const missing = required.filter((key) => !headers.includes(key));
+        if (missing.length) {
+          throw new Error("필수 컬럼이 없습니다: " + missing.join(", "));
+        }
+
+        return lines.slice(1).map((line, rowIndex) => {
+          const cols = line.split(",");
+          const row = {};
+          headers.forEach((key, index) => {
+            row[key] = (cols[index] || "").trim();
+          });
+          const ndRank = row.nd_rank !== undefined && row.nd_rank !== "" ? Number(row.nd_rank) : rowIndex;
+          const filename = row.filename || "";
+          return {
+            gen: Number(row.gen),
+            nd_rank: Number.isFinite(ndRank) ? ndRank : rowIndex,
+            GDP: Number(row.GDP),
+            GHG: Number(row.GHG),
+            filename,
+            pointKey: row.gen + "::" + (Number.isFinite(ndRank) ? ndRank : rowIndex) + "::" + filename + "::" + rowIndex,
+          };
+        }).filter((row) => Number.isFinite(row.gen) && Number.isFinite(row.GDP) && Number.isFinite(row.GHG));
+      }
+
+      function buildState(rows) {
+        const groupedMap = new Map();
+        rows.forEach((row) => {
+          if (!groupedMap.has(row.gen)) {
+            groupedMap.set(row.gen, []);
+          }
+          groupedMap.get(row.gen).push(row);
+        });
+
+        const generationKeys = Array.from(groupedMap.keys()).sort((a, b) => a - b);
+        const grouped = generationKeys.map((gen) => {
+          const points = groupedMap.get(gen).slice().sort((a, b) => a.GDP - b.GDP || a.GHG - b.GHG);
+          return { gen, points };
+        });
+
+        state.rawRows = rows.slice();
+        state.grouped = grouped;
+        state.generationKeys = generationKeys;
+        state.minGDP = Math.min.apply(null, rows.map((row) => row.GDP));
+        state.maxGDP = Math.max.apply(null, rows.map((row) => row.GDP));
+        state.minGHG = Math.min.apply(null, rows.map((row) => row.GHG));
+        state.maxGHG = Math.max.apply(null, rows.map((row) => row.GHG));
+        const combinedMinGDP = Math.min(state.minGDP, baseline.GDP);
+        const combinedMaxGDP = Math.max(state.maxGDP, baseline.GDP);
+        const combinedMinGHG = Math.min(state.minGHG, baseline.GHG);
+        const combinedMaxGHG = Math.max(state.maxGHG, baseline.GHG);
+        const gdpPadding = Math.max((combinedMaxGDP - combinedMinGDP) * 0.05, 0.5);
+        const ghgPadding = Math.max((combinedMaxGHG - combinedMinGHG) * 0.05, 1.0);
+        state.plotMinGDP = combinedMinGDP - gdpPadding;
+        state.plotMaxGDP = combinedMaxGDP + gdpPadding;
+        state.plotMinGHG = combinedMinGHG - ghgPadding;
+        state.plotMaxGHG = combinedMaxGHG + ghgPadding;
+        state.currentIndex = 0;
+        state.previousCurrentKeys = new Set();
+      }
+
+      function formatNumber(value, digits) {
+        return Number(value).toFixed(digits);
+      }
+
+      function getX(value) {
+        const usableWidth = chartBox.width - chartBox.left - chartBox.right;
+        const ratio = (value - state.plotMinGDP) / Math.max(state.plotMaxGDP - state.plotMinGDP, 1e-9);
+        return chartBox.left + ratio * usableWidth;
+      }
+
+      function getY(value) {
+        const usableHeight = chartBox.height - chartBox.top - chartBox.bottom;
+        const ratio = (value - state.plotMinGHG) / Math.max(state.plotMaxGHG - state.plotMinGHG, 1e-9);
+        return chartBox.top + ratio * usableHeight;
+      }
+
+      function createSvgNode(name, attrs) {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+        Object.entries(attrs || {}).forEach(([key, value]) => node.setAttribute(key, value));
+        return node;
+      }
+
+      function clearSvg() {
+        while (svg.firstChild) {
+          svg.removeChild(svg.firstChild);
+        }
+      }
+
+      function renderAxes() {
+        const plotLeft = chartBox.left;
+        const plotRight = chartBox.width - chartBox.right;
+        const plotTop = chartBox.top;
+        const plotBottom = chartBox.height - chartBox.bottom;
+
+        for (let i = 0; i <= 5; i += 1) {
+          const gdpValue = state.plotMinGDP + (state.plotMaxGDP - state.plotMinGDP) * (i / 5);
+          const x = plotLeft + (plotRight - plotLeft) * (i / 5);
+          const line = createSvgNode("line", { x1: x, y1: plotTop, x2: x, y2: plotBottom, class: "grid-line" });
+          svg.appendChild(line);
+          const label = createSvgNode("text", { x, y: plotBottom + 24, "text-anchor": "middle", class: "tick-label" });
+          label.textContent = formatNumber(gdpValue, 2);
+          svg.appendChild(label);
+        }
+
+        for (let i = 0; i <= 5; i += 1) {
+          const ghgValue = state.plotMinGHG + (state.plotMaxGHG - state.plotMinGHG) * (i / 5);
+          const y = plotTop + (plotBottom - plotTop) * (i / 5);
+          const line = createSvgNode("line", { x1: plotLeft, y1: y, x2: plotRight, y2: y, class: "grid-line" });
+          svg.appendChild(line);
+          const label = createSvgNode("text", { x: plotLeft - 12, y: y + 4, "text-anchor": "end", class: "tick-label" });
+          label.textContent = formatNumber(ghgValue, 2);
+          svg.appendChild(label);
+        }
+
+        svg.appendChild(createSvgNode("line", { x1: plotLeft, y1: plotBottom, x2: plotRight, y2: plotBottom, class: "axis" }));
+        svg.appendChild(createSvgNode("line", { x1: plotLeft, y1: plotTop, x2: plotLeft, y2: plotBottom, class: "axis" }));
+
+        const title = createSvgNode("text", { x: plotLeft, y: 22, class: "plot-title" });
+        title.textContent = "Pareto Front Evolution";
+        svg.appendChild(title);
+
+        const xLabel = createSvgNode("text", {
+          x: (plotLeft + plotRight) / 2,
+          y: chartBox.height - 22,
+          "text-anchor": "middle",
+          class: "axis-label"
+        });
+        xLabel.textContent = "GDP (higher is better)";
+        svg.appendChild(xLabel);
+
+        const yLabel = createSvgNode("text", {
+          x: 24,
+          y: (plotTop + plotBottom) / 2,
+          transform: "rotate(-90 24 " + ((plotTop + plotBottom) / 2) + ")",
+          "text-anchor": "middle",
+          class: "axis-label"
+        });
+        yLabel.textContent = "GHG (lower is better)";
+        svg.appendChild(yLabel);
+      }
+
+      function renderBaseline() {
+        const x = getX(baseline.GDP);
+        const y = getY(baseline.GHG);
+        const group = createSvgNode("g", {});
+
+        const halo = createSvgNode("circle", {
+          cx: x,
+          cy: y,
+          r: 10,
+          fill: "rgba(58, 134, 255, 0.12)",
+          stroke: "rgba(58, 134, 255, 0.30)",
+          "stroke-width": "1.2"
+        });
+        group.appendChild(halo);
+
+        const line1 = createSvgNode("line", {
+          x1: x - 6, y1: y - 6, x2: x + 6, y2: y + 6,
+          stroke: "#3a86ff", "stroke-width": "2.8", "stroke-linecap": "round"
+        });
+        const line2 = createSvgNode("line", {
+          x1: x - 6, y1: y + 6, x2: x + 6, y2: y - 6,
+          stroke: "#3a86ff", "stroke-width": "2.8", "stroke-linecap": "round"
+        });
+        group.appendChild(line1);
+        group.appendChild(line2);
+
+        const label = createSvgNode("text", {
+          x: x + 12,
+          y: y - 10,
+          class: "tick-label"
+        });
+        label.textContent = "Baseline";
+        group.appendChild(label);
+
+        attachTooltip(group, {
+          gen: "baseline",
+          nd_rank: "-",
+          GDP: baseline.GDP,
+          GHG: baseline.GHG,
+          filename: "A_base",
+        }, "기준점");
+
+        svg.appendChild(group);
+      }
+
+      function attachTooltip(node, point, extra) {
+        node.addEventListener("mousemove", (event) => {
+          const box = svg.getBoundingClientRect();
+          tooltip.style.opacity = "1";
+          tooltip.style.left = (event.clientX - box.left + 12) + "px";
+          tooltip.style.top = (event.clientY - box.top + 12) + "px";
+          const ndRankLine = point.nd_rank !== undefined && point.nd_rank !== null && point.nd_rank !== ""
+            ? "nd_rank: " + point.nd_rank + "<br>"
+            : "";
+          const filenameLine = point.filename
+            ? "filename: " + point.filename
+            : "filename: -";
+          tooltip.innerHTML =
+            "<strong>Generation " + point.gen + "</strong><br>" +
+            "GDP: " + formatNumber(point.GDP, 4) + "<br>" +
+            "GHG: " + formatNumber(point.GHG, 4) + "<br>" +
+            ndRankLine +
+            filenameLine +
+            (extra ? "<br>" + extra : "");
+        });
+        node.addEventListener("mouseleave", () => {
+          tooltip.style.opacity = "0";
+        });
+      }
+
+      function renderTrail(currentIndex) {
+        if (currentOnlyToggle.checked) {
+          return;
+        }
+        if (!trailToggle.checked) {
+          return;
+        }
+
+        const trailGroup = createSvgNode("g", {});
+        for (let i = 0; i < currentIndex; i += 1) {
+          const opacity = 0.08 + (i / Math.max(currentIndex, 1)) * 0.12;
+          state.grouped[i].points.forEach((point) => {
+            const circle = createSvgNode("circle", {
+              cx: getX(point.GDP),
+              cy: getY(point.GHG),
+              r: 4.5,
+              fill: "rgba(21, 97, 109, " + opacity.toFixed(3) + ")",
+              stroke: "rgba(21, 97, 109, 0.04)",
+              "stroke-width": "1"
+            });
+            attachTooltip(circle, point, "이전 세대");
+            trailGroup.appendChild(circle);
+          });
+        }
+        svg.appendChild(trailGroup);
+      }
+
+      function renderCurrentFront(currentGroup) {
+        const currentKeys = new Set(currentGroup.points.map((point) => point.pointKey));
+        const linePoints = [];
+        const pointGroup = createSvgNode("g", {});
+
+        currentGroup.points.forEach((point) => {
+          const x = getX(point.GDP);
+          const y = getY(point.GHG);
+          const isNew = !state.previousCurrentKeys.has(point.pointKey);
+          linePoints.push(x + "," + y);
+
+          if (highlightToggle.checked && isNew) {
+            const pulse = createSvgNode("circle", {
+              cx: x,
+              cy: y,
+              r: 6,
+              fill: "rgba(58, 134, 255, 0.24)",
+              stroke: "rgba(58, 134, 255, 0.48)",
+              "stroke-width": "1.2"
+            });
+            pointGroup.appendChild(pulse);
+          }
+
+          const circle = createSvgNode("circle", {
+            cx: x,
+            cy: y,
+            r: 6.2,
+            fill: "#ff7d00",
+            stroke: "rgba(255,255,255,0.96)",
+            "stroke-width": "1.8"
+          });
+          attachTooltip(circle, point, isNew ? "새로 강조된 점" : "현재 세대");
+          pointGroup.appendChild(circle);
+        });
+
+        if (polylineToggle.checked && linePoints.length >= 2) {
+          const polyline = createSvgNode("polyline", {
+            points: linePoints.join(" "),
+            fill: "none",
+            stroke: "#15616d",
+            "stroke-width": "2.5",
+            "stroke-linejoin": "round",
+            "stroke-linecap": "round",
+            opacity: "0.92"
+          });
+          svg.appendChild(polyline);
+        }
+
+        svg.appendChild(pointGroup);
+
+        state.previousCurrentKeys = currentKeys;
+      }
+
+      function updateInfo(currentGroup) {
+        const points = currentGroup.points;
+        const maxGdpPoint = points.reduce((best, point) => point.GDP > best.GDP ? point : best, points[0]);
+        const minGhgPoint = points.reduce((best, point) => point.GHG < best.GHG ? point : best, points[0]);
+        const gdpKeepPoint = points.reduce((best, point) => {
+          const currentDiff = Math.abs(point.GDP - baseline.GDP);
+          const bestDiff = Math.abs(best.GDP - baseline.GDP);
+          return currentDiff < bestDiff ? point : best;
+        }, points[0]);
+        const redKeep = baseline.GHG - gdpKeepPoint.GHG;
+        const redMin = baseline.GHG - minGhgPoint.GHG;
+        const extraAbs = redMin - redKeep;
+        const extraPct = redKeep !== 0 ? (extraAbs / redKeep) * 100 : NaN;
+
+        statGen.textContent = String(currentGroup.gen);
+        statCount.textContent = String(points.length);
+        statBestGdp.textContent = formatNumber(maxGdpPoint.GDP, 2);
+        statBestGhg.textContent = formatNumber(minGhgPoint.GHG, 2);
+
+        solutionDetails.innerHTML =
+          "<strong>최고 GDP 해</strong><br>" +
+          "GDP " + formatNumber(maxGdpPoint.GDP, 4) + " / GHG " + formatNumber(maxGdpPoint.GHG, 4) + "<br>" +
+          "file: " + maxGdpPoint.filename + "<br><br>" +
+          "<strong>최저 GHG 해</strong><br>" +
+          "GDP " + formatNumber(minGhgPoint.GDP, 4) + " / GHG " + formatNumber(minGhgPoint.GHG, 4) + "<br>" +
+          "file: " + minGhgPoint.filename;
+
+        rangeDetails.innerHTML =
+          "GDP 축: " + formatNumber(state.plotMinGDP, 4) + " ~ " + formatNumber(state.plotMaxGDP, 4) + "<br>" +
+          "GHG 축: " + formatNumber(state.plotMinGHG, 4) + " ~ " + formatNumber(state.plotMaxGHG, 4) + " (역축)<br>" +
+          "데이터 실제 범위: GDP " + formatNumber(state.minGDP, 4) + " ~ " + formatNumber(state.maxGDP, 4) +
+          ", GHG " + formatNumber(state.minGHG, 4) + " ~ " + formatNumber(state.maxGHG, 4) + "<br>" +
+          "세대: " + state.generationKeys[0] + " ~ " + state.generationKeys[state.generationKeys.length - 1];
+
+        comparisonSummary.innerHTML =
+          "기준점은 `plot_nsga.py`와 동일하게 " +
+          "GDP " + formatNumber(baseline.GDP, 4) + ", GHG " + formatNumber(baseline.GHG, 4) + "입니다.<br>" +
+          "현재 표시 중인 Generation " + currentGroup.gen + " 프론트 기준으로 비교했습니다.";
+
+        comparisonBody.innerHTML = [
+          {
+            label: "기준(원본 A)",
+            GDP: formatNumber(baseline.GDP, 4),
+            GHG: formatNumber(baseline.GHG, 4),
+            reduction: "0.000",
+          },
+          {
+            label: "GDP 유지",
+            GDP: formatNumber(gdpKeepPoint.GDP, 4),
+            GHG: formatNumber(gdpKeepPoint.GHG, 4),
+            reduction: formatNumber(redKeep, 3),
+          },
+          {
+            label: "GHG 최소",
+            GDP: formatNumber(minGhgPoint.GDP, 4),
+            GHG: formatNumber(minGhgPoint.GHG, 4),
+            reduction: formatNumber(redMin, 3),
+          },
+          {
+            label: "추가 감축",
+            GDP: "-",
+            GHG: "-",
+            reduction: formatNumber(extraAbs, 3) + (Number.isFinite(extraPct) ? " (" + formatNumber(extraPct, 1) + "%)" : ""),
+          }
+        ].map((row) => {
+          return "<tr style='border-bottom: 1px solid rgba(28,42,47,0.08);'>" +
+            "<td style='padding: 9px 6px;'>" + row.label + "</td>" +
+            "<td style='padding: 9px 6px; text-align: right;'>" + row.GDP + "</td>" +
+            "<td style='padding: 9px 6px; text-align: right;'>" + row.GHG + "</td>" +
+            "<td style='padding: 9px 6px; text-align: right;'>" + row.reduction + "</td>" +
+            "</tr>";
+        }).join("");
+
+        generationLabel.textContent = currentGroup.gen + " / " + state.generationKeys[state.generationKeys.length - 1];
+        datasetBadge.textContent = state.generationKeys.length + " generations loaded";
+        timelineSummary.textContent = "총 " + state.rawRows.length + "개 점, 현재 세대 점 수 " + points.length;
+        setStatus(
+          "Generation " + currentGroup.gen + "을 표시 중입니다. " +
+          "현재 프론트 점은 " + points.length + "개입니다.",
+          "normal"
+        );
+      }
+
+      function renderChart() {
+        clearSvg();
+        if (!state.grouped.length) {
+          return;
+        }
+        renderAxes();
+        renderBaseline();
+        renderTrail(state.currentIndex);
+        renderCurrentFront(state.grouped[state.currentIndex]);
+      }
+
+      function renderTimeline() {
+        const ctx = timelineCanvas.getContext("2d");
+        const width = timelineCanvas.width;
+        const height = timelineCanvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        if (!state.grouped.length) {
+          return;
+        }
+
+        const counts = state.grouped.map((group) => group.points.length);
+        const maxCount = Math.max.apply(null, counts);
+        const barWidth = width / state.grouped.length;
+
+        ctx.fillStyle = "rgba(21, 97, 109, 0.12)";
+        ctx.fillRect(0, 0, width, height);
+
+        state.grouped.forEach((group, index) => {
+          const barHeight = (group.points.length / maxCount) * (height - 24);
+          const x = index * barWidth;
+          const y = height - barHeight;
+          ctx.fillStyle = index === state.currentIndex ? "#ff7d00" : "rgba(21, 97, 109, 0.45)";
+          ctx.fillRect(x + 1, y, Math.max(barWidth - 2, 1), barHeight);
+        });
+
+        const currentX = state.currentIndex * barWidth + barWidth / 2;
+        ctx.strokeStyle = "#3a86ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(currentX, 0);
+        ctx.lineTo(currentX, height);
+        ctx.stroke();
+      }
+
+      function setCurrentIndex(nextIndex, fromPlayback) {
+        state.currentIndex = Math.min(Math.max(nextIndex, 0), state.grouped.length - 1);
+        generationSlider.value = String(state.currentIndex);
+        renderChart();
+        renderTimeline();
+        updateInfo(state.grouped[state.currentIndex]);
+        emptyState.style.display = "none";
+        if (!fromPlayback) {
+          stopPlayback();
+        }
+      }
+
+      function finishLoad(rows, sourceLabel) {
+        if (!rows.length) {
+          throw new Error("유효한 데이터 행이 없습니다.");
+        }
+        buildState(rows);
+        generationSlider.disabled = false;
+        generationSlider.min = "0";
+        generationSlider.max = String(state.grouped.length - 1);
+        resetBtn.disabled = false;
+        startBtn.disabled = false;
+        setCurrentIndex(0, false);
+        datasetBadge.textContent = sourceLabel;
+      }
+
+      async function loadDefaultCsv() {
+        try {
+          setStatus("기본 CSV를 불러오는 중입니다...", "normal");
+          const response = await fetch("./nsga_front_map_all.csv");
+          if (!response.ok) {
+            throw new Error("기본 CSV를 불러오지 못했습니다. 파일 선택으로 직접 열 수 있습니다.");
+          }
+          const text = await response.text();
+          finishLoad(parseCsv(text), "default CSV loaded");
+        } catch (error) {
+          setStatus(error.message, "warn");
+        }
+      }
+
+      function loadFromFile(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            finishLoad(parseCsv(String(reader.result || "")), file.name);
+          } catch (error) {
+            setStatus(error.message, "warn");
+          }
+        };
+        reader.onerror = () => {
+          setStatus("파일을 읽는 중 오류가 발생했습니다.", "warn");
+        };
+        reader.readAsText(file, "utf-8");
+      }
+
+      startBtn.addEventListener("click", () => {
+        if (!state.grouped.length) {
+          setStatus("먼저 CSV를 불러와 주세요.", "warn");
+          return;
+        }
+        if (state.currentIndex >= state.grouped.length - 1) {
+          setCurrentIndex(0, false);
+        }
+        setStatus("리플레이를 시작합니다.", "normal");
+        scheduleNextFrame();
+      });
+
+      pauseBtn.addEventListener("click", () => {
+        stopPlayback();
+        setStatus("리플레이를 일시정지했습니다.", "normal");
+      });
+
+      resetBtn.addEventListener("click", () => {
+        stopPlayback();
+        state.previousCurrentKeys = new Set();
+        setCurrentIndex(0, false);
+        setStatus("처음 세대로 되돌렸습니다.", "normal");
+      });
+
+      loadDefaultBtn.addEventListener("click", loadDefaultCsv);
+
+      fileInput.addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+          loadFromFile(file);
+        }
+      });
+
+      speedSelect.addEventListener("change", () => {
+        state.frameDelay = Number(speedSelect.value);
+        if (state.isPlaying) {
+          scheduleNextFrame();
+        }
+      });
+
+      generationSlider.addEventListener("input", () => {
+        if (!state.grouped.length) {
+          return;
+        }
+        setCurrentIndex(Number(generationSlider.value), false);
+      });
+
+      [trailToggle, polylineToggle, highlightToggle, currentOnlyToggle].forEach((toggle) => {
+        toggle.addEventListener("change", () => {
+          if (!state.grouped.length) {
+            return;
+          }
+          renderChart();
+          renderTimeline();
+        });
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (!state.grouped.length) {
+          return;
+        }
+        if (event.code === "Space") {
+          event.preventDefault();
+          if (state.isPlaying) {
+            stopPlayback();
+            setStatus("리플레이를 일시정지했습니다.", "normal");
+          } else {
+            scheduleNextFrame();
+          }
+        } else if (event.code === "ArrowRight") {
+          event.preventDefault();
+          setCurrentIndex(Math.min(state.currentIndex + 1, state.grouped.length - 1), false);
+        } else if (event.code === "ArrowLeft") {
+          event.preventDefault();
+          setCurrentIndex(Math.max(state.currentIndex - 1, 0), false);
+        }
+      });
+
+      state.frameDelay = Number(speedSelect.value);
+      setStatus("기본 CSV 자동 로드를 시도할 수 있고, 필요하면 파일 선택으로 직접 열 수 있습니다.", "normal");
+    })();
+  </script>
+</body>
+</html>
