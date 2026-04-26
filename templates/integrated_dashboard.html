@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>euAIKG Dashboard</title>
+  <link rel="stylesheet" href="/static/lib/vis-9.1.2/vis-network.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f5f6f8; color: #1a1a2e; }
+
+    /* ── Grid layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 48px 1fr;
+      height: 100vh;
+    }
+    .header {
+      grid-column: 1 / -1;
+      background: #1a1a2e;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header span { opacity: 0.6; font-weight: 400; margin-left: 8px; }
+
+    /* ── Main area ── */
+    .main { display: flex; flex-direction: column; overflow: hidden; }
+
+    /* EU AI KG tab content (graph + log) */
+    .kg-content {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+    .kg-content.active { display: flex; }
+
+    /* Graph panel */
+    .graph-panel {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: #fff;
+      border-right: 1px solid #e0e0e0;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .sidebar h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; color: #888; letter-spacing: 0.5px; }
+    .phase-list { list-style: none; padding: 0; margin: 0; }
+    .phase-list li { padding: 4px 0; }
+    .phase-list label { cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-run { background: #22c55e; color: #fff; }
+    .btn-run:hover { background: #16a34a; }
+    .btn-run:disabled { background: #94d3a2; cursor: not-allowed; }
+    .btn-stop { background: #ef4444; color: #fff; }
+    .btn-stop:hover { background: #dc2626; }
+    .btn-stop:disabled { background: #f9a8a8; cursor: not-allowed; }
+    .state-box {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+    }
+    .state-row { display: flex; justify-content: space-between; padding: 3px 0; }
+    .state-label { color: #888; }
+    .state-value { font-weight: 600; }
+    .phase-progress { list-style: none; padding: 0; margin: 0; }
+    .phase-progress li { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+    .badge { font-size: 11px; padding: 1px 8px; border-radius: 10px; font-weight: 600; }
+    .badge-wait { background: #e0e0e0; color: #666; }
+    .badge-running { background: #fbbf24; color: #78350f; }
+    .badge-ok { background: #22c55e; color: #fff; }
+    .badge-fail { background: #ef4444; color: #fff; }
+    .cb-wipe { margin-top: 4px; }
+    .cb-wipe label { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+    /* ── Main area ── */
+
+    /* Tab navigation */
+    .tab-nav {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 0 16px;
+    }
+    .tab-btn {
+      padding: 12px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: #1a1a2e; background: #f5f6f8; }
+    .tab-btn.active { color: #1a1a2e; border-bottom-color: #22c55e; }
+
+    #cy { width: 100%; height: 100%; }
+    .graph-toolbar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.92);
+      border-top: 1px solid #e0e0e0;
+      padding: 6px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 10;
+    }
+    .graph-toolbar select, .graph-toolbar button {
+      padding: 5px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .graph-toolbar button:hover { background: #f0f0f0; }
+    .graph-toolbar .spacer { flex: 1; }
+    .graph-status { font-size: 12px; color: #888; }
+
+    /* AIDE Networks panel */
+    .aide-panel {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      background: #f8f4ed;
+    }
+    .aide-panel.active { display: flex; }
+    .aide-toolbar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      flex-wrap: wrap;
+    }
+    .aide-btn {
+      padding: 8px 14px;
+      border: 1px solid #d8cec2;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fffaf3 0%, #f7efe4 100%);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #18222d;
+      transition: all 0.12s;
+    }
+    .aide-btn:hover { transform: translateY(-1px); border-color: #bb9476; }
+    .aide-btn.active {
+      background: linear-gradient(180deg, #c6543a 0%, #9e3723 100%);
+      color: white;
+      border-color: transparent;
+    }
+    .aide-viewer {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .aide-viewer-header {
+      padding: 16px 20px;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+    }
+    .aide-viewer-header h2 { margin: 0 0 8px; font-size: 20px; }
+    .aide-viewer-header p { margin: 0; color: #666; font-size: 13px; }
+    .aide-network-container {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+      padding: 16px;
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .aide-network-container img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+    }
+    .aide-network-container iframe {
+      width: 100%;
+      height: 550px;
+      border: none;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="header">euAIKG Dashboard <span>EU AI Act Knowledge Graph</span></div>
+
+  <div class="sidebar">
+    <div>
+      <h3>Pipeline Control</h3>
+      <ul class="phase-list">
+        <li><label><input type="checkbox" id="cb-extract" checked> Extract</label></li>
+        <li><label><input type="checkbox" id="cb-ingest" checked> Ingest</label></li>
+        <li><label><input type="checkbox" id="cb-community" checked> Community</label></li>
+      </ul>
+      <div class="cb-wipe">
+        <label><input type="checkbox" id="cb-wipe"> Wipe DB first</label>
+      </div>
+    </div>
+    <button class="btn btn-run" id="btnRun">RUN</button>
+    <button class="btn btn-stop" id="btnStop" disabled>STOP</button>
+    <div class="state-box" id="stateBox">
+      <div class="state-row"><span class="state-label">State</span><span class="state-value" id="stState">idle</span></div>
+      <div class="state-row"><span class="state-label">Phase</span><span class="state-value" id="stPhase">&mdash;</span></div>
+      <div class="state-row"><span class="state-label">Elapsed</span><span class="state-value" id="stTime">00:00</span></div>
+    </div>
+    <div>
+      <h3>Phase Progress</h3>
+      <ul class="phase-progress" id="phaseProgress">
+        <li><span>extract</span><span class="badge badge-wait" id="bp-extract">wait</span></li>
+        <li><span>ingest</span><span class="badge badge-wait" id="bp-ingest">wait</span></li>
+        <li><span>community</span><span class="badge badge-wait" id="bp-community">wait</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="kg">EU AI KG</button>
+      <button class="tab-btn" data-tab="aide">AIDE Networks</button>
+    </div>
+
+    <!-- EU AI KG Tab Content -->
+    <div class="kg-content active" id="tab-kg">
+      <div class="graph-panel">
+        <div id="cy"></div>
+        <div class="graph-toolbar">
+          <label style="font-size:12px;">Layout:</label>
+          <select id="layoutSelect">
+            <option value="cose" selected>cose</option>
+            <option value="concentric">concentric</option>
+            <option value="breadthfirst">breadthfirst</option>
+            <option value="grid">grid</option>
+            <option value="circle">circle</option>
+          </select>
+          <button id="btnLayout">Apply</button>
+          <button id="btnFit">Fit</button>
+          <button id="btnRefresh">Refresh Data</button>
+          <span class="spacer"></span>
+          <span class="graph-status" id="graphStatus">Ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AIDE Networks Tab Content -->
+    <div class="aide-panel" id="tab-aide">
+      <div class="aide-toolbar">
+        <button class="aide-btn active" data-aide="graph1">GDP Variables</button>
+        <button class="aide-btn" data-aide="graph2">Global Industry</button>
+        <button class="aide-btn" data-aide="graph3">Case Law</button>
+        <button class="aide-btn" data-aide="graph4">Trade-CO2</button>
+        <button class="aide-btn" data-aide="graph5">Pacific Trade</button>
+      </div>
+      <div class="aide-viewer">
+        <div class="aide-viewer-header">
+          <h2 id="aideTitle">GDP 관련 변수 관계 네트워크</h2>
+          <p id="aideDesc">GDP 관련 변수 간 영향 관계</p>
+        </div>
+        <div class="aide-network-container" id="aideNetworkContainer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<script src="/static/lib/vis-9.1.2/vis-network.min.js"></script>
+<script src="/static/network_ui/aide_data.js"></script>
+<script>
+(function() {
+  // AIDE Network rendering
+  let currentAideNetwork = null;
+  function renderAideNetwork(key) {
+    const data = AIDE_NETWORKS_DATA[key];
+    const container = document.getElementById('aideNetworkContainer');
+    document.getElementById('aideTitle').textContent = data.title;
+    document.getElementById('aideDesc').textContent = data.desc;
+    if (currentAideNetwork) { currentAideNetwork.destroy(); currentAideNetwork = null; }
+    if (data.type === 'image') {
+      container.innerHTML = '<img src="' + data.src + '" alt="' + data.title + '">';
+    } else if (data.type === 'iframe') {
+      container.innerHTML = '<iframe src="' + data.src + '" loading="lazy"></iframe>';
+    }
+  }
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.kg-content, .aide-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // AIDE button switching
+  document.querySelectorAll('.aide-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.aide-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderAideNetwork(btn.dataset.aide);
+    });
+  });
+
+  // Pipeline UI
+  const btnRun = document.getElementById('btnRun'), btnStop = document.getElementById('btnStop');
+  const stState = document.getElementById('stState'), stPhase = document.getElementById('stPhase'), stTime = document.getElementById('stTime');
+  const graphStatus = document.getElementById('graphStatus');
+  let cy = null, eventSource = null, timerInterval = null, startedAt = null;
+
+  async function loadGraph() {
+    graphStatus.textContent = 'Loading...';
+    try {
+      const res = await fetch('/data');
+      const payload = await res.json();
+      const elements = payload.nodes.concat(payload.edges);
+      if (cy) cy.destroy();
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements,
+        style: [
+          { selector: 'node', style: { 'content': 'data(label)', 'text-valign': 'center', 'text-halign': 'center', 'text-wrap': 'wrap', 'text-max-width': 140, 'font-size': 10, 'background-color': '#6fb1fc', 'color': '#fff', 'text-outline-color': '#456', 'text-outline-width': 2 }},
+          { selector: 'edge', style: { 'curve-style': 'bezier', 'target-arrow-shape': 'triangle', 'line-color': '#999', 'target-arrow-color': '#999', 'width': 1.5, 'label': 'data(label)', 'font-size': 9, 'text-background-color': '#fff', 'text-background-opacity': 1, 'text-background-padding': '2px' }},
+          { selector: ':selected', style: { 'background-color': '#f39', 'line-color': '#f39', 'target-arrow-color': '#f39' }}
+        ],
+        layout: { name: 'cose', animate: false },
+        wheelSensitivity: 0.2
+      });
+      cy.ready(() => cy.fit());
+      graphStatus.textContent = payload.nodes.length + ' nodes, ' + payload.edges.length + ' edges';
+    } catch (e) { graphStatus.textContent = 'No data'; }
+  }
+
+  document.getElementById('btnLayout').addEventListener('click', () => {
+    if (!cy) return;
+    const name = document.getElementById('layoutSelect').value;
+    cy.nodes().unlock();
+    cy.layout({ name, animate: true, animationDuration: 400 }).run();
+  });
+  document.getElementById('btnFit').addEventListener('click', () => { if (cy) cy.fit(); });
+  document.getElementById('btnRefresh').addEventListener('click', loadGraph);
+
+  function startTimer() {
+    startedAt = Date.now();
+    timerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - startedAt) / 1000), m = Math.floor(s / 60);
+      stTime.textContent = String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    }, 1000);
+  }
+  function stopTimer() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } }
+
+  function updateStatus(data) {
+    stState.textContent = data.state;
+    stPhase.textContent = data.current_phase || '—';
+    const phases = ['extract', 'ingest', 'community'];
+    phases.forEach(p => {
+      const badge = document.getElementById('bp-' + p);
+      if (data.completed_phases && data.completed_phases.includes(p)) { badge.textContent = 'OK'; badge.className = 'badge badge-ok'; }
+      else if (data.current_phase === p) { badge.textContent = 'running'; badge.className = 'badge badge-running'; }
+      else { badge.textContent = 'wait'; badge.className = 'badge badge-wait'; }
+    });
+    if (data.state === 'failed') { const badge = document.getElementById('bp-' + data.current_phase); if (badge) { badge.textContent = 'FAIL'; badge.className = 'badge badge-fail'; } }
+  }
+
+  function setUIRunning(running) { btnRun.disabled = running; btnStop.disabled = !running; }
+
+  btnRun.addEventListener('click', async () => {
+    const phases = [], wipe_db = document.getElementById('cb-wipe').checked;
+    if (document.getElementById('cb-extract').checked) phases.push('extract');
+    if (document.getElementById('cb-ingest').checked) phases.push('ingest');
+    if (document.getElementById('cb-community').checked) phases.push('community');
+    if (phases.length === 0) { alert('No phases selected.'); return; }
+    ['extract', 'ingest', 'community'].forEach(p => { const b = document.getElementById('bp-' + p); b.textContent = 'wait'; b.className = 'badge badge-wait'; });
+    setUIRunning(true); startTimer();
+    try {
+      const res = await fetch('/api/pipeline/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phases, wipe_db }) });
+      const body = await res.json();
+      if (!res.ok) { alert('Error: ' + (body.error || 'unknown')); setUIRunning(false); stopTimer(); return; }
+    } catch (e) { alert('Failed to start: ' + e.message); setUIRunning(false); stopTimer(); return; }
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource('/api/pipeline/events');
+    eventSource.addEventListener('status', (e) => { updateStatus(JSON.parse(e.data)); });
+    eventSource.addEventListener('done', () => {
+      eventSource.close(); eventSource = null; setUIRunning(false); stopTimer();
+      loadGraph();
+    });
+    eventSource.onerror = () => {
+      eventSource.close(); eventSource = null; setUIRunning(false); stopTimer();
+      fetch('/api/status').then(r => r.json()).then(updateStatus).catch(() => {});
+    };
+  });
+
+  btnStop.addEventListener('click', async () => {
+    try { await fetch('/api/pipeline/stop', { method: 'POST' }); } catch (e) { alert('Stop request failed: ' + e.message); }
+  });
+
+  setInterval(async () => {
+    try { const res = await fetch('/api/status'); const data = await res.json(); updateStatus(data); } catch (e) { }
+  }, 5000);
+
+  loadGraph();
+  fetch('/api/status').then(r => r.json()).then(updateStatus).catch(() => {});
+  renderAideNetwork('graph1');
+})();
+</script>
+</body>
+</html>

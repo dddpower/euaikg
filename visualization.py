@@ -7,13 +7,14 @@ import time
 from pathlib import Path
 from queue import Empty
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, request, send_from_directory
 import db
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
+_STATIC_DIR = Path(__file__).parent / "static"
 
 # Module-level Flask app so routes are registered at import time
-app = Flask(__name__)
+app = Flask(__name__, static_folder=str(_STATIC_DIR))
 
 # Module-level state
 _pipeline_status = None  # set when pipeline starts
@@ -57,8 +58,8 @@ def _cy_elements_from_neo4j(limit: int = 500):
 
 @app.get("/")
 def index():
-    """Serve the dashboard (replaces old graph_viewer)."""
-    template_path = _TEMPLATE_DIR / "dashboard.html"
+    """Serve the integrated dashboard (EU AI KG + AIDE Networks)."""
+    template_path = _TEMPLATE_DIR / "integrated_dashboard.html"
     return template_path.read_text(encoding="utf-8")
 
 
@@ -67,6 +68,12 @@ def graph_viewer():
     """Serve the standalone graph viewer (backwards compat)."""
     template_path = _TEMPLATE_DIR / "graph_viewer.html"
     return template_path.read_text(encoding="utf-8")
+
+
+@app.get("/network_ui/<path:filename>")
+def serve_network_ui(filename):
+    """Serve static files for AIDE Networks."""
+    return send_from_directory(_STATIC_DIR / "network_ui", filename)
 
 
 @app.get("/data")
